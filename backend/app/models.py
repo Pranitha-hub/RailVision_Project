@@ -13,6 +13,7 @@ from .database import Base
 class UserRole(str, enum.Enum):
     passenger = "passenger"
     admin = "admin"
+    controller = "controller"
 
 
 class CrowdSource(str, enum.Enum):
@@ -28,6 +29,8 @@ class User(Base):
     email = Column(String(255), unique=True, index=True, nullable=False)
     password = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), default=UserRole.passenger)
+    reset_token = Column(String(100), nullable=True)
+    reset_expiry = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     reports = relationship("Report", back_populates="user")

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Chart, registerables } from 'chart.js';
+
 Chart.register(...registerables);
 
 const PredictionChart = ({ predictions }) => {
@@ -11,84 +12,91 @@ const PredictionChart = ({ predictions }) => {
       chartInstance.current.destroy();
     }
 
-    const ctx = chartRef.current.getContext('2d');
+    const canvas = chartRef.current;
+    if (!canvas) return;
+
+    // Use warm gradient
+    const ctx = canvas.getContext('2d');
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    gradient.addColorStop(0, 'rgba(194, 80, 42, 0.4)'); // terra-soft but slightly deeper
+    gradient.addColorStop(1, 'rgba(194, 80, 42, 0.0)');
+
     chartInstance.current = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: predictions.map(p => p.hourLabel),
-        datasets: [
-          {
-            label: 'Upper Bound',
-            data: predictions.map(p => p.upper),
-            borderColor: 'transparent',
-            backgroundColor: 'rgba(6, 182, 212, 0.08)',
-            fill: '+1',
-            pointRadius: 0,
-            tension: 0.4,
-          },
-          {
-            label: 'Predicted Crowd',
-            data: predictions.map(p => p.predicted),
-            borderColor: '#06b6d4',
-            backgroundColor: 'rgba(6, 182, 212, 0.1)',
-            borderWidth: 2,
-            pointRadius: 4,
-            pointBackgroundColor: predictions.map(p => 
-              p.isCurrentHour ? '#22d3ee' : 'rgba(6, 182, 212, 0.6)'
-            ),
-            pointBorderColor: predictions.map(p => 
-              p.isCurrentHour ? '#fff' : 'transparent'
-            ),
-            pointBorderWidth: predictions.map(p => p.isCurrentHour ? 2 : 0),
-            tension: 0.4,
-            fill: false,
-          },
-          {
-            label: 'Lower Bound',
-            data: predictions.map(p => p.lower),
-            borderColor: 'transparent',
-            backgroundColor: 'rgba(6, 182, 212, 0.08)',
-            fill: false,
-            pointRadius: 0,
-            tension: 0.4,
-          },
-        ],
+        labels: predictions.map(p => {
+          // format output to be more human "2 PM" instead of "14:00"
+          const h = parseInt(p.time.split(':')[0], 10);
+          return h > 12 ? `${h - 12} PM` : h === 12 ? '12 PM' : h === 0 ? '12 AM' : `${h} AM`;
+        }),
+        datasets: [{
+          label: 'Expected Busyness',
+          data: predictions.map(p => p.density),
+          backgroundColor: gradient,
+          borderColor: '#C2502A', // terra
+          borderWidth: 3,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: '#C2502A',
+          pointBorderWidth: 2,
+          pointRadius: 4,
+          pointHoverRadius: 6,
+          fill: true,
+          tension: 0.4 // Bezier curve for organic feel
+        }],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        interaction: { intersect: false, mode: 'index' },
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: 'rgba(10, 14, 26, 0.95)',
-            borderColor: 'rgba(6, 182, 212, 0.3)',
+            backgroundColor: 'rgba(255, 255, 255, 0.95)',
+            titleColor: '#1C1917',
+            bodyColor: '#44403C',
+            borderColor: '#EDE4D8',
             borderWidth: 1,
             padding: 12,
+            boxPadding: 6,
+            usePointStyle: true,
+            titleFont: { family: "'Bricolage Grotesque', sans-serif", size: 14, weight: 'bold' },
+            bodyFont: { family: "'Plus Jakarta Sans', sans-serif", size: 13 },
             callbacks: {
-              label: (ctx) => {
-                if (ctx.datasetIndex === 1) {
-                  const pred = predictions[ctx.dataIndex];
-                  return `Predicted: ${pred.predicted}% (Confidence: ${pred.confidence}%)`;
-                }
-                return null;
-              },
-            },
-          },
+              label: function(context) {
+                return `${context.parsed.y}% Full`;
+              }
+            }
+          }
         },
         scales: {
-          x: { ticks: { color: '#64748b', font: { size: 11 } }, grid: { color: 'rgba(148,163,184,0.06)' } },
-          y: { min: 0, max: 100, ticks: { color: '#64748b', font: { size: 11 }, callback: v => v + '%' }, grid: { color: 'rgba(148,163,184,0.06)' } },
+           x: { 
+             ticks: { color: '#78716C', font: { family: "'Plus Jakarta Sans'", size: 11, weight: '500' } }, 
+             grid: { display: false },
+             border: { display: false }
+           },
+           y: { 
+             min: 0, 
+             max: 100, 
+             ticks: { 
+               color: '#78716C', 
+               font: { family: "'Plus Jakarta Sans'", size: 11 },
+               callback: function(value) { return value + "%"; },
+               stepSize: 25
+             }, 
+             grid: { color: '#F5EFE6', drawBorder: false },
+             border: { display: false }
+           },
         },
       },
     });
 
     return () => {
-      if (chartInstance.current) chartInstance.current.destroy();
+      if (chartInstance.current) {
+        chartInstance.current.destroy();
+      }
     };
   }, [predictions]);
 
-  return <canvas ref={chartRef} />;
+  return <canvas ref={chartRef}></canvas>;
 };
 
 export default PredictionChart;

@@ -1,63 +1,76 @@
 import React from 'react';
-import { getCrowdDensity, getCrowdLevel } from '../data/mockData';
+import { Clock, MapPin, ArrowRight, Smile, AlertCircle, Coffee } from 'lucide-react';
 import CrowdBadge from './CrowdBadge';
 
+// train shape expected:
+// { train_id, train_name, source, destination, departure_time, current_crowd_level, crowd_status }
+
 const TrainCard = ({ train, onClick }) => {
-  const now = new Date();
-  const density = getCrowdDensity(train.id, now.getHours(), now.getDay());
-  const level = getCrowdLevel(density);
+  const density   = train.current_crowd_level ?? 50;
+  const departure = train.departure_time
+    ? new Date(train.departure_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+    : '--:--';
+
+  const statusIcon =
+    density < 40  ? <><Coffee size={14} /> Quiet commute</> :
+    density > 75  ? <><AlertCircle size={14} /> Very busy now</> :
+                    <><Smile size={14} /> Moderate</>;
 
   return (
-    <div 
-      className="card train-card animate-fade-in-up" 
+    <div
+      className="card animate-fade-up"
       onClick={() => onClick(train)}
-      style={{ cursor: 'pointer', padding: 'var(--space-5)', position: 'relative', overflow: 'hidden' }}
+      style={{ cursor: 'pointer', padding: '0', overflow: 'hidden' }}
     >
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: level === 'low' ? 'var(--crowd-low)' : level === 'moderate' ? 'var(--crowd-moderate)' : 'var(--crowd-high)', borderRadius: '4px 0 0 4px' }}></div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2px 2fr' }}>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-3)' }}>
-        <div>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--fs-base)', marginBottom: 'var(--space-1)' }}>
-            {train.trainName}
+        {/* Left — Identity */}
+        <div style={{ padding: 'var(--space-6)', background: 'var(--cream-dark)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {train.train_id}
           </div>
-          <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--color-text-muted)' }}>
-            #{train.trainNumber} • {train.daysOfWeek.join(', ')}
+          <h3 className="h3" style={{ lineHeight: 1.2, fontSize: '1rem' }}>{train.train_name}</h3>
+          <div className="flex items-center gap-2" style={{ fontSize: '0.875rem', color: 'var(--ink-soft)', fontWeight: 500, marginTop: 'auto' }}>
+            <MapPin size={14} color="var(--terra)" />
+            {train.source} → {train.destination}
           </div>
         </div>
-        <CrowdBadge density={density} />
-      </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--fs-lg)' }}>{train.departure}</div>
-          <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--color-text-muted)' }}>{train.from.code}</div>
-        </div>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-          <div style={{ flex: 1, height: '2px', background: 'var(--color-border)', position: 'relative' }}>
-            <div style={{ position: 'absolute', right: 0, top: '-3px', width: '8px', height: '8px', background: 'var(--color-accent-teal)', borderRadius: '50%' }}></div>
+        {/* Divider */}
+        <div style={{ background: 'var(--cream-deep)' }} />
+
+        {/* Right — Live Details */}
+        <div style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          <div className="flex-between flex-wrap gap-2">
+            <span style={{ fontSize: '0.875rem', color: 'var(--ink-muted)', fontWeight: 500 }}>Right now</span>
+            <CrowdBadge density={density} />
           </div>
-          <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{train.duration}</span>
-          <div style={{ flex: 1, height: '2px', background: 'var(--color-border)' }}></div>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--fs-lg)' }}>{train.arrival}</div>
-          <div style={{ fontSize: 'var(--fs-xs)', color: 'var(--color-text-muted)' }}>{train.to.code}</div>
-        </div>
-      </div>
 
-      <div style={{ marginBottom: 'var(--space-3)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-1)' }}>
-          <span style={{ fontSize: 'var(--fs-xs)', color: 'var(--color-text-muted)' }}>Crowd Level</span>
-          <span style={{ fontSize: 'var(--fs-xs)', fontWeight: 600, color: level === 'low' ? 'var(--crowd-low)' : level === 'moderate' ? 'var(--crowd-moderate)' : 'var(--crowd-high)' }}>{density}%</span>
-        </div>
-        <div className="crowd-bar">
-          <div className={`crowd-bar-fill ${level}`} style={{ width: `${density}%` }}></div>
-        </div>
-      </div>
+          <div className="flex items-center" style={{ gap: 'var(--space-4)' }}>
+            <div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 700, fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>{departure}</div>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--ink-muted)' }}>Departs</div>
+            </div>
+            <div style={{ flex: 1, height: '2px', background: 'var(--cream-deep)', position: 'relative', margin: '0 var(--space-3)' }}>
+              <ArrowRight size={14} color="var(--terra-light)" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', backgroundColor: 'white' }} strokeWidth={3} />
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '1.75rem', fontWeight: 700, fontFamily: 'var(--font-display)', letterSpacing: '-0.02em', opacity: 0.5 }}>–</div>
+              <div style={{ fontSize: '0.8125rem', color: 'var(--ink-muted)' }}>Arrives</div>
+            </div>
+          </div>
 
-      <button className="btn btn-sm btn-secondary view-details-btn" style={{ width: '100%' }}>
-        View Details & AI Prediction →
-      </button>
+          <div className="flex-between items-center" style={{ paddingTop: 'var(--space-2)', borderTop: '1px solid var(--cream-deep)' }}>
+            <div className="flex items-center gap-2" style={{ fontSize: '0.8125rem', color: 'var(--ink-muted)', fontWeight: 600 }}>
+              {statusIcon}
+            </div>
+            <div className="flex items-center gap-1" style={{ color: 'var(--terra)', fontWeight: 600, fontSize: '0.875rem' }}>
+              View details <ArrowRight size={14} />
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 };

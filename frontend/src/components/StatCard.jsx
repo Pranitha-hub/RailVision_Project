@@ -1,51 +1,70 @@
 import React, { useState, useEffect } from 'react';
+import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
-const StatCard = ({ id, icon, label, value, suffix = '', trend = null, color = 'teal' }) => {
+const StatCard = ({ id, Icon, label, value, suffix = '', trend = null }) => {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
     let startTime;
-    const duration = 1500;
-    const target = parseInt(value);
+    const duration = 1200;
+    const targetValue = typeof value === 'string' ? parseFloat(value.replace(/,/g, '')) : value;
+
+    if (isNaN(targetValue)) {
+      setDisplayValue(value);
+      return;
+    }
 
     const animate = (currentTime) => {
       if (!startTime) startTime = currentTime;
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
+      const progress = Math.min((currentTime - startTime) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplayValue(Math.round(eased * target));
-
+      setDisplayValue(Math.round(eased * targetValue));
       if (progress < 1) requestAnimationFrame(animate);
     };
 
     requestAnimationFrame(animate);
   }, [value]);
 
-  const colorStyles = {
-    teal: { bg: 'rgba(6,182,212,0.06)', iconBg: 'rgba(6,182,212,0.12)' },
-    amber: { bg: 'rgba(245,158,11,0.06)', iconBg: 'rgba(245,158,11,0.12)' },
-    red: { bg: 'rgba(239,68,68,0.06)', iconBg: 'rgba(239,68,68,0.12)' },
-    purple: { bg: 'rgba(139,92,246,0.06)', iconBg: 'rgba(139,92,246,0.12)' },
-  };
-  const style = colorStyles[color] || colorStyles.teal;
-
   return (
-    <div className="card stat-card" id={`stat-${id}`} style={{ position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, right: 0, width: '80px', height: '80px', background: style.bg, borderRadius: '0 0 0 80px' }}></div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-3)' }}>
-        <div style={{ width: '40px', height: '40px', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', background: style.iconBg }}>
-          {icon}
+    <div className="card animate-fade-in" style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: 'var(--space-4)',
+      padding: 'var(--space-6)',
+    }}>
+      <div className="flex-between">
+        <div style={{ fontSize: '0.875rem', color: 'var(--ink-soft)', fontWeight: 600 }}>
+          {label}
         </div>
-        <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)' }}>{label}</span>
+        <div style={{ color: 'var(--terra)', background: 'var(--terra-soft)', padding: '6px', borderRadius: '50%' }}>
+          {Icon && <Icon size={18} strokeWidth={2.5} />}
+        </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--space-2)' }}>
-        <span className="stat-value" style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--fs-3xl)', fontWeight: 800, color: 'var(--color-text-primary)' }}>
+      
+      <div className="flex items-baseline gap-2">
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: '2.5rem', fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.02em' }}>
           {displayValue.toLocaleString()}
         </span>
-        {suffix && <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--color-text-muted)', marginBottom: '4px' }}>{suffix}</span>}
-        {trend && (
-          <div className={`stat-trend ${trend > 0 ? 'trend-up' : 'trend-down'}`}>
-            {trend > 0 ? '↑' : '↓'} {Math.abs(trend)}%
+        {suffix && (
+          <span style={{ fontSize: '1rem', color: 'var(--ink-muted)', fontWeight: 500 }}>
+            {suffix}
+          </span>
+        )}
+      </div>
+
+      <div className="flex-between items-center" style={{ marginTop: 'auto', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--cream-deep)' }}>
+        <div style={{ fontSize: '0.75rem', color: 'var(--ink-faint)', fontWeight: 500 }}>Live summary</div>
+        {trend !== null && (
+          <div className="flex items-center gap-1" style={{ 
+            color: trend > 0 ? 'var(--sage)' : 'var(--ink-muted)', 
+            fontSize: '0.75rem', 
+            fontWeight: 600,
+            background: trend > 0 ? 'var(--sage-soft)' : 'var(--cream-dark)',
+            padding: '4px 8px',
+            borderRadius: 'var(--radius-full)'
+          }}>
+            {trend > 0 ? <ArrowUpRight size={12} strokeWidth={3} /> : <ArrowDownRight size={12} strokeWidth={3} />}
+            {Math.abs(trend)}%
           </div>
         )}
       </div>

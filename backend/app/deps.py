@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 import jwt
 
 from .database import get_db
-from .models import User
+from .models import User, UserRole
 from .config import settings
 
 security = HTTPBearer(auto_error=False)
@@ -43,6 +43,19 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Token has expired. Please login again.")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+class RoleChecker:
+    def __init__(self, allowed_roles: list[UserRole]):
+        self.allowed_roles = allowed_roles
+
+    def __call__(self, user: User = Depends(get_current_user)):
+        if user.role not in self.allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied. Insufficient permissions."
+            )
+        return user
 
 
 def get_optional_user(

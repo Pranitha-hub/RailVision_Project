@@ -9,9 +9,17 @@ import random
 import math
 
 from ..database import get_db
-from ..models import Train, CrowdData, Report
+from ..models import Train, CrowdData, Report, UserRole
+from ..deps import RoleChecker
 
-router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+# Access restricted to Admin (Authority) and System Controller
+dashboard_guard = Depends(RoleChecker([UserRole.admin, UserRole.controller]))
+
+router = APIRouter(
+    prefix="/dashboard",
+    tags=["Authority Dashboard"],
+    dependencies=[dashboard_guard]
+)
 
 
 @router.get("/kpis")

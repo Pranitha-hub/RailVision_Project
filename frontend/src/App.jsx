@@ -14,7 +14,7 @@ const App = () => {
   useEffect(() => {
     // Sync role if user is found in localStorage but not in session
     if (!role && user) {
-      const uiRole = user.role === 'admin' ? 'authority' : 'passenger';
+      const uiRole = (user.role === 'admin' || user.role === 'controller') ? 'authority' : 'passenger';
       sessionStorage.setItem('railVisionRole', uiRole);
       setRole(uiRole);
     }
@@ -29,7 +29,7 @@ const App = () => {
 
   const handleLoginSuccess = (userData) => {
     setUser(userData);
-    const uiRole = userData.role === 'admin' ? 'authority' : 'passenger';
+    const uiRole = (userData.role === 'admin' || userData.role === 'controller') ? 'authority' : 'passenger';
     sessionStorage.setItem('railVisionRole', uiRole);
     setRole(uiRole);
   };
@@ -38,7 +38,7 @@ const App = () => {
     <Router>
       <div className="app-container">
         <NavbarWrapper role={role} onLogout={handleLogout} />
-        <main id="page-content">
+        <main id="page-content" style={{ paddingBottom: 'var(--space-12)' }}>
           <Routes>
             <Route path="/" element={<Landing setRole={setRole} />} />
             <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />

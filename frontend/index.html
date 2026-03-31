@@ -3,15 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RailVision — AI-Powered Crowd Intelligence for Indian Railways</title>
-  <meta name="description" content="Predict crowd levels, find the best time to travel, and receive AI-powered recommendations for unreserved Indian railway journeys. Real-time crowd tracking and analytics.">
-  <meta name="keywords" content="railway, crowd prediction, AI, Indian railways, unreserved, train, travel, crowd intelligence">
+  <title>RailVision — Crowd Intelligence for Indian Railways</title>
+  <meta name="description" content="Know how busy your train is before you board. Real-time crowd tracking, smart route suggestions, and AI predictions for Indian Railways.">
+  <meta name="keywords" content="railway, crowd, Indian railways, train tracker, commute, IRCTC, crowd prediction">
   <meta name="author" content="RailVision">
-  <meta name="theme-color" content="#0a0e1a">
+  <meta name="theme-color" content="#FBF8F3">
+
+  <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚆</text></svg>">
+
+  <!-- Google Fonts — Human Edition typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700;12..96,800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS — interactive map (no API key required) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin="">
 </head>
 <body>
   <div id="root"></div>
+
+  <!-- Leaflet JS — must load before React bundle -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN2/WXo="
+    crossorigin="">
+  </script>
+
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>
