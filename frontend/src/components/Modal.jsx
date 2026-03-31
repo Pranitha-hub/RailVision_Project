@@ -4,41 +4,48 @@ import { X, Smile } from 'lucide-react';
 const Modal = ({ title, children, onClose }) => {
   return (
     <>
-      {/* Soft overlay */}
+      {/* Full-screen wrapper to handle centering without positioning hacks that break transforms */}
       <div 
-        style={{ 
-          position: 'fixed', 
-          inset: 0, 
-          backgroundColor: 'rgba(28,25,23,0.3)', 
-          backdropFilter: 'blur(5px)',
-          WebkitBackdropFilter: 'blur(5px)',
-          zIndex: 1000,
-          animation: 'fade-in 300ms ease'
-        }} 
-        onClick={onClose}
-      ></div>
-      
-      {/* Warm, rounded modal container */}
-      <div 
-        className="animate-fade-up"
-        style={{ 
-          position: 'fixed', 
-          top: '50%', 
-          left: '50%', 
-          transform: 'translate(-50%, -50%)',
-          width: '95%',
-          maxWidth: '800px',
-          maxHeight: '85vh',
-          backgroundColor: 'var(--cream)',
-          border: '1.5px solid var(--cream-deep)',
-          borderRadius: 'var(--radius-2xl)',
-          zIndex: 1001,
-          overflowY: 'auto',
-          padding: 'var(--space-10)',
-          boxShadow: 'var(--shadow-xl)',
-          animationDuration: '400ms'
+        style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 'var(--space-6)',
         }}
       >
+        {/* Soft overlay background */}
+        <div 
+          style={{ 
+            position: 'absolute', 
+            inset: 0, 
+            backgroundColor: 'rgba(28,25,23,0.3)', 
+            backdropFilter: 'blur(5px)',
+            WebkitBackdropFilter: 'blur(5px)',
+            animation: 'fade-in 300ms ease'
+          }} 
+          onClick={onClose}
+        ></div>
+        
+        {/* Warm, rounded modal container */}
+        <div 
+          className="animate-fade-up"
+          style={{ 
+            position: 'relative',
+            width: '100%',
+            maxWidth: '800px',
+            maxHeight: '90vh',
+            backgroundColor: 'var(--cream)',
+            border: '1px solid var(--cream-deep)',
+            borderRadius: 'var(--radius-2xl)',
+            overflowY: 'auto',
+            padding: 'var(--space-10)',
+            boxShadow: 'var(--shadow-xl)',
+            animationDuration: '400ms'
+          }}
+        >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-8)' }}>
           <div className="flex items-center gap-3">
              <div style={{ width: '40px', height: '40px', background: 'var(--terra-soft)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--terra)' }}>
@@ -76,6 +83,7 @@ const Modal = ({ title, children, onClose }) => {
         <div style={{ position: 'relative' }}>
           {children}
         </div>
+      </div>
       </div>
     </>
   );

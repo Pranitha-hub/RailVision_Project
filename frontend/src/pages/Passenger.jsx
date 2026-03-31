@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, MapPin, Calendar, HeartHandshake, Shield, Sparkles,
-         AlertCircle, RefreshCw, Map, Loader2 } from 'lucide-react';
-import { stations, getCrowdLevel } from '../data/stations';
+         AlertCircle, RefreshCw, Map, Loader2, Navigation, CloudRain,
+         Thermometer, Wind, Eye } from 'lucide-react';
+import { stations, getCrowdLevel, findNearestStation, getWeatherCrowdFactor } from '../data/stations';
 import { apiClient } from '../data/apiClient';
 import TrainCard from '../components/TrainCard';
 import CrowdBadge from '../components/CrowdBadge';
 import Modal from '../components/Modal';
 import PredictionChart from '../components/PredictionChart';
 
-// ── Leaflet is loaded via CDN in index.html ──────────────────────────────────
+// ── Leaflet is loaded via CDN in index.html ──
 const L = typeof window !== 'undefined' ? window.L : null;
 
 const Passenger = () => {
@@ -22,6 +23,12 @@ const Passenger = () => {
   const [showMap, setShowMap]         = useState(false);
   const mapRef   = useRef(null);
   const mapInst  = useRef(null);
+
+  // GPS & Weather state
+  const [gpsLoading, setGpsLoading]     = useState(false);
+  const [nearestInfo, setNearestInfo]   = useState(null); // { station, distance }
+  const [weather, setWeather]           = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
 
   // Load all trains on mount
   useEffect(() => {
@@ -48,21 +55,62 @@ const Passenger = () => {
     setToStation(fromStation);
   };
 
-  // Leaflet map initialization
+  // ── GPS: Detect nearest station ──
+  const handleDetectLocation = async () => {
+    setGpsLoading(true);
+    setNearestInfo(null);
+    try {
+      const coords = await apiClient.getUserLocation();
+      const result = findNearestStation(coords.lat, coords.lng);
+      setNearestInfo(result);
+      // Auto-set as "From" station
+      if (result.station) {
+        setFromStation(result.station.code);
+      }
+      // Also fetch weather for this location
+      fetchWeather(coords.lat, coords.lng);
+    } catch (e) {
+      setError('Could not detect your location: ' + e.message);
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  // ── Weather: Fetch for a station ──
+  const fetchWeather = async (lat, lng) => {
+    setWeatherLoading(true);
+    try {
+      const w = await apiClient.getWeather(lat, lng);
+      setWeather(w);
+    } catch (e) {
+      console.warn('Weather fetch failed:', e);
+    } finally {
+      setWeatherLoading(false);
+    }
+  };
+
+  // Fetch weather when fromStation changes
+  useEffect(() => {
+    if (fromStation) {
+      const st = stations.find(s => s.code === fromStation);
+      if (st) fetchWeather(st.lat, st.lng);
+    }
+  }, [fromStation]);
+
+  // ── Leaflet map initialization ──
   useEffect(() => {
     if (!showMap || !L || mapInst.current) return;
 
     const stationRef = stations.find(s => s.code === fromStation)
       || stations.find(s => s.code === toStation)
-      || { lat: 22.5726, lng: 88.3639 }; // Default: Kolkata
+      || { lat: 22.5726, lng: 88.3639 };
 
     mapInst.current = L.map(mapRef.current).setView([stationRef.lat, stationRef.lng], 5);
 
-    // Warm CartoDB tiles – no API key needed
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
-      subdomains: 'abcd',
-      maxZoom: 16,
+    // OpenStreetMap tiles (100% free)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+      maxZoom: 18,
     }).addTo(mapInst.current);
 
     // Plot all station markers
@@ -72,21 +120,14 @@ const Passenger = () => {
 
       const icon = L.divIcon({
         className: '',
-        html: `<div style="
-          width:${isSource || isDest ? 18 : 10}px;
-          height:${isSource || isDest ? 18 : 10}px;
-          border-radius:50%;
-          background:${isSource ? '#C2502A' : isDest ? '#4A7C59' : '#A8A29E'};
-          border:2px solid white;
-          box-shadow:0 2px 6px rgba(0,0,0,0.25);
-        "></div>`,
+        html: '<div style="width:' + (isSource || isDest ? 18 : 10) + 'px;height:' + (isSource || isDest ? 18 : 10) + 'px;border-radius:50%;background:' + (isSource ? '#C2502A' : isDest ? '#4A7C59' : '#A8A29E') + ';border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.25);"></div>',
         iconSize: [isSource || isDest ? 18 : 10, isSource || isDest ? 18 : 10],
         iconAnchor: [isSource || isDest ? 9 : 5, isSource || isDest ? 9 : 5],
       });
 
       L.marker([st.lat, st.lng], { icon })
         .addTo(mapInst.current)
-        .bindPopup(`<b>${st.name}</b><br/><span style="color:#78716C;font-size:12px">${st.code}</span>`);
+        .bindPopup('<b>' + st.name + '</b><br/><span style="color:#78716C;font-size:12px">' + st.code + '</span>');
     });
 
     // Draw route line if both selected
@@ -158,22 +199,52 @@ const Passenger = () => {
 
             <button className="btn btn-primary" onClick={handleSearch}
               style={{ height: '44px', alignSelf: 'flex-end', gap: '8px', paddingInline: '1.5rem' }}>
-              <Search size={18} />
-              Search
+              <Search size={18} /> Search
             </button>
           </div>
 
-          {/* Map toggle */}
-          <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--cream-deep)' }}>
+          {/* Action row: GPS + Map + Weather */}
+          <div style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--cream-deep)', display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+            
+            {/* GPS Button */}
+            <button
+              onClick={handleDetectLocation}
+              disabled={gpsLoading}
+              className="btn btn-secondary"
+              style={{ gap: '8px', fontSize: '0.875rem', padding: '0.5rem 1.25rem' }}
+            >
+              {gpsLoading
+                ? <><Loader2 size={16} className="animate-spin" /> Detecting...</>
+                : <><Navigation size={16} /> Use My Location</>
+              }
+            </button>
+
+            {/* GPS result pill */}
+            {nearestInfo && (
+              <div className="badge badge-sage" style={{ padding: '6px 14px', fontSize: '0.8125rem', gap: '6px' }}>
+                <MapPin size={13} /> Nearest: {nearestInfo.station.name} ({nearestInfo.distance} km away)
+              </div>
+            )}
+
+            <div style={{ flex: 1 }} />
+
+            {/* Map toggle */}
             <button
               onClick={() => setShowMap(v => !v)}
               className="btn btn-secondary"
               style={{ gap: '8px', fontSize: '0.875rem', padding: '0.5rem 1.25rem' }}
             >
-              <Map size={16} /> {showMap ? 'Hide Route Map' : 'Show Route Map'}
+              <Map size={16} /> {showMap ? 'Hide Map' : 'Show Route Map'}
             </button>
           </div>
         </div>
+
+        {/* Weather Widget */}
+        {weather && (
+          <div className="animate-fade-up" style={{ marginBottom: 'var(--space-8)', display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+            <WeatherCard weather={weather} stationCode={fromStation} />
+          </div>
+        )}
 
         {/* Leaflet Map */}
         {showMap && (
@@ -205,7 +276,7 @@ const Passenger = () => {
             {loading ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
                 {[1,2,3].map(i => (
-                  <div key={i} style={{ height: '120px', borderRadius: 'var(--radius-lg)', background: 'var(--cream-dark)', animation: 'pulse-soft 1.8s ease infinite', animationDelay: `${i * 200}ms` }} />
+                  <div key={i} style={{ height: '120px', borderRadius: 'var(--radius-lg)', background: 'var(--cream-dark)', animation: 'pulse-soft 1.8s ease infinite', animationDelay: (i * 200) + 'ms' }} />
                 ))}
               </div>
             ) : trains.length > 0 ? (
@@ -223,6 +294,37 @@ const Passenger = () => {
 
           {/* Sidebar */}
           <div className="flex flex-col gap-6">
+
+            {/* Weather impact card */}
+            {weather && (
+              <div className="card" style={{ padding: 'var(--space-6)', background: 'linear-gradient(135deg, white, var(--cream-dark))', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: '-20%', right: '-10%', width: '100px', height: '100px', fontSize: '4rem', opacity: 0.15, pointerEvents: 'none' }}>
+                  {weather.icon}
+                </div>
+                <h3 className="h3" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-4)', fontSize: '1rem' }}>
+                  <CloudRain size={18} color="var(--ink-muted)" /> Crowd × Weather
+                </h3>
+                {(() => {
+                  const factor = getWeatherCrowdFactor(weather.weatherCode, weather.temperature);
+                  const pct = Math.round((factor - 1) * 100);
+                  return (
+                    <div>
+                      <div style={{ fontSize: '1.75rem', fontWeight: 700, fontFamily: 'var(--font-display)', color: pct > 0 ? 'var(--rose)' : pct < 0 ? 'var(--sage)' : 'var(--ink)' }}>
+                        {pct > 0 ? '+' : ''}{pct}%
+                      </div>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--ink-soft)', lineHeight: 1.5, marginTop: '6px' }}>
+                        {pct > 0
+                          ? "Today's weather may push more people onto trains. Expect busier platforms."
+                          : pct < 0
+                          ? 'Conditions are keeping some travellers away. Trains may be calmer today.'
+                          : 'Weather conditions are neutral — normal crowd patterns expected.'}
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
             <div className="card-warm" style={{ padding: 'var(--space-6)' }}>
               <h3 className="h3" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--space-5)', fontSize: '1rem' }}>
                 <AlertCircle size={18} color="var(--amber)" /> Service Updates
@@ -249,7 +351,7 @@ const Passenger = () => {
         {/* Train Detail Modal */}
         {selectedTrain && (
           <Modal title={selectedTrain.train_name} onClose={() => setSelectedTrain(null)}>
-            <TrainDetailModal train={selectedTrain} />
+            <TrainDetailModal train={selectedTrain} weather={weather} />
           </Modal>
         )}
       </div>
@@ -257,25 +359,73 @@ const Passenger = () => {
   );
 };
 
-// ── Train Detail (inside Modal) ────────────────────────────────────────────────
-const TrainDetailModal = ({ train }) => {
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  WEATHER CARD (horizontal strip above results)
+// ══════════════════════════════════════════════════════════════════════════════
+const WeatherCard = ({ weather, stationCode }) => {
+  const st = stations.find(s => s.code === stationCode);
+  return (
+    <div className="surface animate-fade-up" style={{ flex: 1, padding: 'var(--space-5) var(--space-6)', display: 'flex', alignItems: 'center', gap: 'var(--space-6)', flexWrap: 'wrap' }}>
+      <div style={{ fontSize: '2rem' }}>{weather.icon}</div>
+      <div>
+        <div style={{ fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: '1.125rem' }}>
+          {weather.description}
+        </div>
+        <div style={{ fontSize: '0.875rem', color: 'var(--ink-muted)' }}>
+          at {st ? st.name : 'your location'}
+        </div>
+      </div>
+      <div style={{ flex: 1 }} />
+      <div className="flex gap-6">
+        <WeatherStat icon={<Thermometer size={16} />} label="Temp" value={weather.temperature + '\u00b0C'} />
+        <WeatherStat icon={<Wind size={16} />} label="Wind" value={weather.windSpeed + ' km/h'} />
+        <WeatherStat icon={<Eye size={16} />} label="Humidity" value={weather.humidity + '%'} />
+      </div>
+    </div>
+  );
+};
+
+const WeatherStat = ({ icon, label, value }) => (
+  <div className="flex items-center gap-2">
+    <div style={{ color: 'var(--ink-muted)' }}>{icon}</div>
+    <div>
+      <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: '1rem', fontWeight: 700 }}>{value}</div>
+    </div>
+  </div>
+);
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  TRAIN DETAIL MODAL (inside Modal)
+// ══════════════════════════════════════════════════════════════════════════════
+const TrainDetailModal = ({ train, weather }) => {
   const [crowdData,   setCrowdData]   = useState(null);
   const [predictions, setPredictions] = useState([]);
   const [loading,     setLoading]     = useState(true);
+  const [liveStatus,  setLiveStatus]  = useState(null);
 
   useEffect(() => {
     const load = async () => {
       try {
+        // Fetch from local backend
         const [crowd, pred] = await Promise.all([
           apiClient.getCrowdData(train.train_id),
           apiClient.getPrediction(train.train_id),
         ]);
         setCrowdData(crowd);
-        // Shape prediction for PredictionChart: [{ time, density }]
         setPredictions(pred.predictions.map(p => ({
           time: new Date(p.hour).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
           density: p.predicted_level,
         })));
+
+        // Attempt external live status (fails gracefully if no API key)
+        const trainNo = train.train_id.replace(/\D/g, '');
+        if (trainNo.length >= 4) {
+          const status = await apiClient.getLiveTrainStatus(trainNo);
+          if (status && !status.error) setLiveStatus(status);
+        }
       } catch (e) {
         console.error('Detail load failed:', e);
       } finally {
@@ -297,18 +447,19 @@ const TrainDetailModal = ({ train }) => {
   const compartments = crowdData?.compartments ?? {};
   const compArray    = Object.entries(compartments).map(([name, density]) => ({ name: name.toUpperCase(), density }));
 
+  // Weather-adjusted level
+  const weatherFactor = weather ? getWeatherCrowdFactor(weather.weatherCode, weather.temperature) : 1;
+  const adjustedLevel = Math.min(100, Math.round(level * weatherFactor));
+
   return (
     <div className="flex flex-col gap-8">
 
       {/* Overview */}
       <div className="flex-between flex-wrap gap-4" style={{ paddingBottom: 'var(--space-6)', borderBottom: '1px solid var(--cream-deep)' }}>
-        <div>
-          <div style={{ fontSize: '0.875rem', color: 'var(--ink-muted)', fontWeight: 500 }}>
-            {train.source} → {train.destination}
-          </div>
-          <div style={{ fontSize: '1.625rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginTop: '4px' }}>
-            {train.train_name}
-          </div>
+        <div style={{ fontSize: '1.25rem', color: 'var(--ink-soft)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: 'var(--ink)' }}>{train.source}</span>
+          <span style={{ color: 'var(--ink-muted)' }}>{'\u2192'}</span>
+          <span style={{ color: 'var(--ink)' }}>{train.destination}</span>
         </div>
         <div className="flex items-center gap-3">
           <div style={{ textAlign: 'right' }}>
@@ -318,6 +469,30 @@ const TrainDetailModal = ({ train }) => {
           <CrowdBadge density={level} />
         </div>
       </div>
+
+      {/* Live Status from IndianRailAPI (if available) */}
+      {liveStatus && (
+        <div className="card-warm" style={{ padding: 'var(--space-4) var(--space-5)', display: 'flex', alignItems: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
+          <div className="badge badge-terra" style={{ padding: '5px 12px' }}>LIVE</div>
+          <div style={{ fontSize: '0.9375rem', color: 'var(--ink-soft)', lineHeight: 1.5 }}>
+            {liveStatus.current_station_name
+              ? <>Currently at <strong>{liveStatus.current_station_name}</strong></>
+              : 'Live tracking data from IndianRailAPI'
+            }
+            {liveStatus.delay && liveStatus.delay !== '0' && (
+              <span style={{ color: 'var(--rose)', fontWeight: 600 }}> · {liveStatus.delay} min late</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Weather adjustment notice */}
+      {weather && weatherFactor !== 1 && (
+        <div style={{ padding: 'var(--space-3) var(--space-5)', background: 'var(--amber-soft)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.875rem', color: 'var(--amber)' }}>
+          <CloudRain size={16} />
+          Weather-adjusted estimate: <strong>{adjustedLevel}%</strong> (due to {weather.description.toLowerCase()})
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-8)' }}>
 
@@ -334,7 +509,7 @@ const TrainDetailModal = ({ train }) => {
                 <span style={{ fontWeight: 600, fontSize: '0.8125rem', width: '70px', flexShrink: 0 }}>{name}</span>
                 <div className="progress-track">
                   <div className="progress-fill" style={{
-                    width: `${d}%`,
+                    width: d + '%',
                     backgroundColor: d > 75 ? 'var(--rose)' : d > 50 ? 'var(--amber)' : 'var(--sage)'
                   }} />
                 </div>
@@ -368,7 +543,7 @@ const TrainDetailModal = ({ train }) => {
           className="btn btn-primary"
           style={{ padding: '0.875rem 2.5rem', fontSize: '1rem' }}
         >
-          Book on IRCTC →
+          Book on IRCTC {'\u2192'}
         </a>
         <div style={{ marginTop: '10px', fontSize: '0.8125rem', color: 'var(--ink-faint)' }}>
           Opens the official Indian Railways booking site
@@ -377,6 +552,7 @@ const TrainDetailModal = ({ train }) => {
     </div>
   );
 };
+
 
 const ServiceUpdate = ({ icon: Icon, text }) => (
   <div className="flex items-start gap-3" style={{ paddingBottom: 'var(--space-4)', borderBottom: '1px solid var(--cream-deep)' }}>
